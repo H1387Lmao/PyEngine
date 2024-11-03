@@ -26,7 +26,7 @@ pip install pyqt5
 
 # UI
 
-It has a game screen and properties bar
+It has THE game screen and properties menu with a object viewer.
 
 # Script
 
