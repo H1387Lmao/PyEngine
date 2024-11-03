@@ -35,10 +35,38 @@ class GameObject:
 		self.font_size = font_size
 		self.text = font_text
 		self.font = None
+		name = shape[0].upper()+shape.removeprefix(shape[0])
+		counter = 0
+		for obj in self.parent.objects:
+			if name == obj.name:
+				numbers = self.get_all_nums(name)
+				if numbers:
+					counter = int(numbers)
+					name = name.removesuffix(str(int(numbers)))
+				counter += 1
+
+				name += str(counter)
+
+		self.name = name
 
 		self.script = script
 		self.selected = False  # Initialize selected state
 		self.lua = LuaRuntime(unpack_returned_tuples=True)
+
+	def get_all_nums(self, name):
+		n = []
+
+		name = name[::-1]
+
+		for idx in range(len(name)):
+			char = name[idx]
+
+			if char in "0123456789":
+				n.insert(0, char)
+			else:
+				break
+
+		return ''.join(n)
 
 	def execute_script(self):
 		# Set up Lua script environment
@@ -107,7 +135,7 @@ class GameObject:
 				font = self.font.render(str(self.text), True, self.color, border_color)
 				screen.blit(font, self.pos)
 class Game(QWidget):
-	def __init__(self, properties_frame, console):
+	def __init__(self, properties_frame, console, object_viewer):
 		super().__init__()
 		self.setFixedSize(500, 480)
 		self.property_frame = properties_frame
@@ -115,6 +143,8 @@ class Game(QWidget):
 		self.screen = pygame.Surface((500, 480))
 		self.clock = pygame.time.Clock()
 		self.console = console
+
+		self.object_viewer = object_viewer
 		
 		self.objects = []
 		self.selected_objects = []  # List to hold selected objects
@@ -170,6 +200,13 @@ class Game(QWidget):
 		
 		self.context_menu.exec_(event.globalPos())
 
+	def update_object_viewer(self):
+		self.object_viewer.list_widget.clear()
+		self.object_viewer.list_widget.addItem("Object Viewer")
+
+		for obj in self.objects:
+			self.object_viewer.list_widget.addItem(obj.name)
+
 	def copy_selected_objects(self):
 		self.clipboard = [obj.copy() for obj in self.selected_objects]
 
@@ -185,6 +222,7 @@ class Game(QWidget):
 
 		self.selected_objects = self.clipboard
 		self.clipboard = None
+		self.update_object_viewer()
 
 	def destroy_selected_objects(self):
 		# Remove selected objects from the game
@@ -193,6 +231,7 @@ class Game(QWidget):
 		self.selected_objects.clear()
 		self.console.append_text("Destroyed selected objects")
 		self.update_properties_display(selected_object=None)
+		self.update_object_viewer()
 
 	def show_new_object_menu(self):
 		shape_menu = QMenu("Select Object", self)
@@ -227,6 +266,7 @@ class Game(QWidget):
 			self.objects.append(GameObject((local_pos.x(), local_pos.y()), (50, 50), color=(0,255,0), shape='circle', parent=self))
 		elif shape == 'text':
 			self.objects.append(GameObject((local_pos.x(), local_pos.y()), (100, 25), color=(0,255,0), shape='text', parent=self))
+		self.update_object_viewer()
 
 	def toggle_play_state(self, quiet_mode=False):
 		if not self.is_playing:
@@ -344,7 +384,7 @@ class Game(QWidget):
 class PropertiesFrame(QFrame):
 	def __init__(self):
 		super().__init__()
-		self.setFixedWidth(200)
+		self.setGeometry(0,0,200, 800)
 		self.setStyleSheet("background-color: lightgray;")
 
 		self.script_editor = ScriptEditor(self)
@@ -456,6 +496,57 @@ class PropertiesFrame(QFrame):
 			self.game.update_properties_display(self.game.selected_objects[0])
 			dialog.accept()
 
+class ObjectViewer(QFrame):
+	def __init__(self):
+		super().__init__()
+		self.setGeometry(0,0,200, 800)
+		self.setStyleSheet("background-color: lightgray;")
+
+		
+		self.layout = QVBoxLayout(self)
+		self.list_widget = QListWidget(self)
+		self.layout.addWidget(self.list_widget)
+		self.setLayout(self.layout)
+
+		self.list_widget.itemDoubleClicked.connect(self.edit_name)
+
+	def set_game(self, game):
+		self.parent = game
+
+	def get_item(self, item):
+		for obj in self.parent.objects:
+			if obj.name == item:
+				return obj
+		return None
+
+	def exists(self, item):
+		return self.get_item(item)
+
+	def edit_value(self, obj, name):
+		if self.exists(name):
+			QMessageBox.warning(None, "Name Already Exists", "Name already exists, please choose another name")
+			return
+		obj.name = name
+		self.dialog.accept()
+		self.parent.update_object_viewer()
+
+	def edit_name(self, item):
+		self.dialog = QDialog(self)
+		self.dialog.setWindowTitle(f"Edit Name")
+		self.dialog.setGeometry(0,0, 300, 100)
+		self.dialog_layout = QFormLayout(self.dialog)
+
+		obj = self.get_item(item.text())
+
+		edit_input = QLineEdit(obj.name)
+		self.dialog_layout.addRow(item.text(), edit_input)
+
+		save_button = QPushButton("Save")
+		save_button.clicked.connect(lambda: self.edit_value(obj, edit_input.text()))
+		self.dialog_layout.addWidget(save_button)
+
+		self.dialog.exec_()
+
 class ScriptEditor(QDialog):
 	def __init__(self, parent):
 		super().__init__()
@@ -495,6 +586,25 @@ class ConsoleDialog(QDialog):
 		layout = QVBoxLayout(self)
 		layout.addWidget(self.console_output)
 		self.setLayout(layout)
+		self.command = QLineEdit(self)
+		layout.addWidget(self.command)
+		self.btn = QPushButton(self)
+		self.btn.setText("Run Command")
+		layout.addWidget(self.btn)
+
+		self.btn.clicked.connect(self.run)
+
+	def set_game(self, game):
+		self.parent = game
+
+	def run(self):
+		command = self.command.text()
+		if command == "name_debug":
+			for i in range(101):
+				self.parent.add_square()
+		if command == "clear_all":
+			self.parent.objects = []
+			self.parent.update_object_viewer()
 
 	def closeEvent(self, event):
 		# Handle the close event to perform actions when console is closed
@@ -529,10 +639,15 @@ class MainWindow(QMainWindow):
 		layout = QHBoxLayout(frame)
 		
 		self.properties_frame = PropertiesFrame()
-		self.game = Game(self.properties_frame, self.console_dialog)
+		self.object_viewer = ObjectViewer()
+		self.game = Game(self.properties_frame, self.console_dialog, self.object_viewer)
 		
 		layout.addWidget(self.game)
+		self.object_viewer.set_game(self.game)
 		self.properties_frame.set_game(self.game)
+		self.console_dialog.set_game(self.game)
+		
+		layout.addWidget(self.object_viewer)
 		layout.addWidget(self.properties_frame)
 		
 		frame.setLayout(layout)
