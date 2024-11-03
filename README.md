@@ -1,2 +1,27 @@
 # PyEngine
-game engine (NOT LIBRARY) written in python
+
+Have you ever considered making a game without making boilerplate code?
+
+No? Well now you have a game engine that does it
+
+It has a UI like any other game engine.
+
+# UI
+
+It has a game screen and properties bar
+
+# Script
+
+It uses Lua for scripts
+
+`self` is a built in class for Lua, giving you the power of editing attributes
+
+For example
+```lua
+self.pos[0] = 10 -- pos is a list of 2 values, x and y
+self.pos[1] = 10
+
+--"""
+--Every single attribute in the properties bar is a legal attribute to modify
+--"""
+```
