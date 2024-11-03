@@ -6,6 +6,24 @@ No? Well now you have a game engine that does it
 
 It has a UI like any other game engine.
 
+# Requirements
+
+This game engine requires these libraries:
+```
+pip install pygame-ce
+pip install lupa
+pip install pyqt5
+```
+
+- **Pygame**
+   - game rendering
+
+- **PyQt5**
+   - ui rendering
+
+- **Lupa**
+   - lua runtime
+
 # UI
 
 It has a game screen and properties bar
